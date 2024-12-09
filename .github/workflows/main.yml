@@ -1,0 +1,53 @@
+name: Test GPG Key for Signed Commit
+
+on:
+  push:
+    branches:
+      - main  # You can change this to your preferred branch
+
+jobs:
+  test-gpg:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up GPG
+      run: |
+        # Install GPG if not already installed
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+
+        # Import the GPG key (replace <GPG_PRIVATE_KEY> with your actual private key)
+        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+        # Trust the imported key
+        echo -e "trust-model always\ny\n" | gpg --batch --command-fd 0 --edit-key <mythicalx36@gmail.com> trust
+
+    - name: Set up Git user
+      run: |
+        git config --global user.name "mythicalx36"
+        git config --global user.email "<mythicalx36@gmail.com>"
+        git config --global commit.gpgSign true
+        git config --global gpg.program gpg
+
+    - name: Create a test commit
+      run: |
+        # Create a test file
+        echo "This is a test commit" > test-file.txt
+        git add test-file.txt
+        git commit -m "Test GPG signed commit"
+
+    - name: Verify GPG signature
+      run: |
+        # Get the commit hash
+        COMMIT_HASH=$(git rev-parse HEAD)
+
+        # Verify the commit signature
+        gpg --verify <(git show $COMMIT_HASH) || exit 1
+        echo "Commit signature is valid!"
+
+    - name: Push the commit (optional)
+      run: |
+        git push
